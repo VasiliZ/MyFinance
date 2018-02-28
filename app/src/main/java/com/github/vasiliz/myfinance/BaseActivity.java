@@ -1,5 +1,6 @@
 package com.github.vasiliz.myfinance;
 
+import android.app.ProgressDialog;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
@@ -9,23 +10,16 @@ import android.widget.ProgressBar;
 
 public class BaseActivity extends AppCompatActivity {
 
-    public ProgressBar mProgressBar;
+    public ProgressDialog progressDialog;
 
-    @Override
-    protected void onCreate(@Nullable final Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.progressbar_layout);
+
+    public void showProgressDialog() {
+        progressDialog = ProgressDialog.show(this, "", "wait");
     }
 
-    public void startShowProgressOperation(){
-        View view = View.inflate(this,R.layout.progressbar_layout, null);
-        view = findViewById(R.id.linlaHeaderProgress);
-        view.setVisibility(View.VISIBLE);
+    public void hideProgressDialog() {
+        if (progressDialog != null) {
+            progressDialog.hide();
+        }
     }
-
-    public void endShowProgressOperation(){
-        LinearLayout linlaHeaderProgress = findViewById(R.id.linlaHeaderProgress);
-        linlaHeaderProgress.setVisibility(View.GONE);
-    }
-
 }
