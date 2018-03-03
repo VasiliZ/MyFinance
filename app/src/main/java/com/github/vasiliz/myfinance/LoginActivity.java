@@ -15,12 +15,13 @@ import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 
-public class LoginActivity extends BaseActivity implements View.OnClickListener {
+public class LoginActivity extends BaseActivity implements View.OnClickListener, IContractView {
 
     private TextView mStatusTextView;
     private TextView mDetailTextView;
     private EditText mEmailField;
     private EditText mPasswordField;
+    private PresenterLoginActivity presenterLoginActivity;
 
     private FirebaseAuth mAuth;
     private final String TAG = LoginActivity.class.getSimpleName();
@@ -40,8 +41,20 @@ public class LoginActivity extends BaseActivity implements View.OnClickListener 
         findViewById(R.id.sign_out_button).setOnClickListener(this);
         findViewById(R.id.verify_email_button).setOnClickListener(this);
 
-        FirebaseUser currentUser = mAuth.getCurrentUser();
+        mAuth = FirebaseAuth.getInstance();
 
+        ModelLoginActivity modelLoginActivity = new ModelLoginActivity(mAuth);
+        presenterLoginActivity = new PresenterLoginActivity(modelLoginActivity);
+        presenterLoginActivity.attachView(this);
+
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+
+        FirebaseUser firebaseUser = mAuth.getCurrentUser();
+        updateUI(firebaseUser);
     }
 
     private void createAccount(String pEmail, String pPassword) {
@@ -60,11 +73,11 @@ public class LoginActivity extends BaseActivity implements View.OnClickListener 
                         if (task.isSuccessful()) {
                             Log.d(TAG, "Account created");
                             FirebaseUser firebaseUser = mAuth.getCurrentUser();
-                            // TODO implements updateUI
+                            updateUI(firebaseUser);
                         } else {
                             Log.d(TAG, "Failure on create account", task.getException());
                             Toast.makeText(LoginActivity.this, "Auth failed", Toast.LENGTH_SHORT).show();
-                            //TODO updateUI
+                           updateUI(null);
                         }
 
                         hideProgressDialog();
@@ -87,11 +100,11 @@ public class LoginActivity extends BaseActivity implements View.OnClickListener 
                         if (task.isSuccessful()) {
                             Log.d(TAG, "Account created");
                             FirebaseUser firebaseUser = mAuth.getCurrentUser();
-                            // TODO implements updateUI
+                            updateUI(firebaseUser);
                         } else {
                             Log.d(TAG, "Failure on create account", task.getException());
                             Toast.makeText(LoginActivity.this, "Auth failed", Toast.LENGTH_SHORT).show();
-                            //TODO updateUI
+                            updateUI(null);
                         }
 
                         if (!task.isSuccessful()) {
@@ -102,29 +115,44 @@ public class LoginActivity extends BaseActivity implements View.OnClickListener 
                 });
     }
 
+    @Override
+    public void showProgress() {
+        showProgressDialog();
+    }
+
+    @Override
+    public void hideProgress() {
+        hideProgressDialog();
+    }
+
+
+
     private void signOut() {
         mAuth.signOut();
-        //updateUI
+        updateUI(null);
     }
+
 
     private void sendEmailVerify() {
         findViewById(R.id.verify_email_button).setEnabled(false);
 
         final FirebaseUser firebaseUser = mAuth.getCurrentUser();
 
-        firebaseUser.sendEmailVerification()
-                .addOnCompleteListener(this, new OnCompleteListener<Void>() {
-                    @Override
-                    public void onComplete(@NonNull Task<Void> task) {
-                        findViewById(R.id.verify_email_button).setEnabled(true);
+        if (firebaseUser != null) {
+            firebaseUser.sendEmailVerification()
+                    .addOnCompleteListener(this, new OnCompleteListener<Void>() {
+                        @Override
+                        public void onComplete(@NonNull Task<Void> task) {
+                            findViewById(R.id.verify_email_button).setEnabled(true);
 
-                        if (task.isSuccessful()) {
-                            Toast.makeText(LoginActivity.this, "Verify email to " + firebaseUser.getEmail(), Toast.LENGTH_SHORT).show();
-                        } else {
-                            Toast.makeText(LoginActivity.this, "Verify failed email to " + firebaseUser.getEmail(), Toast.LENGTH_SHORT).show();
+                            if (task.isSuccessful()) {
+                                Toast.makeText(LoginActivity.this, "Verify email to " + firebaseUser.getEmail(), Toast.LENGTH_SHORT).show();
+                            } else {
+                                Toast.makeText(LoginActivity.this, "Verify failed email to " + firebaseUser.getEmail(), Toast.LENGTH_SHORT).show();
+                            }
                         }
-                    }
-                });
+                    });
+        }
     }
 
     private void updateUI(FirebaseUser pFirebaseUser) {
@@ -183,5 +211,13 @@ public class LoginActivity extends BaseActivity implements View.OnClickListener 
         } else if (i == R.id.verify_email_button) {
             sendEmailVerify();
         }
+    }
+
+    public UserData getUserData(){
+        UserData userData = new UserData();
+        userData.setEmail(mEmailField.getText().toString());
+        userData.setPassword(mPasswordField.getText().toString());
+        return userData;
+
     }
 }
