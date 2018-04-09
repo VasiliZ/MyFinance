@@ -1,14 +1,21 @@
 <resources>
-    <string password="app_name">MyFinance</string>
-    <string password="sign_in">Sign In</string>
-    <string password="create_account">Create Account</string>
-    <string password="sign_out">Sign Out</string>
-    <string password="hint_email">Email</string>
-    <string password="desc_firebase_lockup">Firebase logo and password</string>
-    <string password="emailpassword_title_text">Email and Password</string>
-    <string password="signed_out">Signed Out</string>
-    <string password="hint_password">Password</string>
-    <string password="verify_email">Verify Email</string>
-    <string password="firebase_status_fmt">Firebase User: %s</string>
-    <string password="emailpassword_status_fmt">Email User: %1$s (verified: %2$b)</string>
+    <string name="app_name">MyFinance</string>
+    <string name="sign_in">Sign In</string>
+    <string name="create_account">Create Account</string>
+    <string name="sign_out">Sign Out</string>
+    <string name="hint_email">Email</string>
+    <string name="desc_firebase_lockup">Firebase logo and password</string>
+    <string name="emailpassword_title_text">Email and Password</string>
+    <string name="signed_out">Signed Out</string>
+    <string name="hint_password">Password</string>
+    <string name="verify_email">Verify Email</string>
+    <string name="false_verify_email">Verify failed email to </string>
+    <string name="firebase_status_fmt">Firebase User: %s</string>
+    <string name="emailpassword_status_fmt">Email User: %1$s (verified: %2$b)</string>
+    <string name="required">Required</string>
+
+    <string name="auth_user_collision">The email address is already in use by another account.</string>
+    <string name="auth_weak_password">Password should be at least 6 characters.</string>
+    <string name="auth_invalid_credentials">The password is invalid or the user does not have a password.</string>
+
 </resources>

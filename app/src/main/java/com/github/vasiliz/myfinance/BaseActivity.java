@@ -18,8 +18,13 @@ public class BaseActivity extends AppCompatActivity {
     }
 
     public void hideProgressDialog() {
-        if (progressDialog != null) {
+        if (progressDialog != null && progressDialog.isShowing()) {
             progressDialog.hide();
         }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
     }
 }

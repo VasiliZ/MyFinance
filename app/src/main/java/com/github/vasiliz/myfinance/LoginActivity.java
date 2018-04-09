@@ -1,7 +1,6 @@
 package com.github.vasiliz.myfinance;
 
 import android.os.Bundle;
-import android.support.annotation.NonNull;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
@@ -9,11 +8,15 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
-import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException;
+import com.google.firebase.auth.FirebaseAuthUserCollisionException;
+import com.google.firebase.auth.FirebaseAuthWeakPasswordException;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.auth.UserInfo;
+
+import java.util.Objects;
 
 public class LoginActivity extends BaseActivity implements View.OnClickListener, IContractView {
 
@@ -21,10 +24,11 @@ public class LoginActivity extends BaseActivity implements View.OnClickListener,
     private TextView mDetailTextView;
     private EditText mEmailField;
     private EditText mPasswordField;
-    private PresenterLoginActivity presenterLoginActivity;
-
     private FirebaseAuth mAuth;
     private final String TAG = LoginActivity.class.getSimpleName();
+    private final String mCreateAccount = "create Account ";
+    private final String mDidntCreateAccount = "Failure on create account ";
+    private FirebaseUser mFirebaseUser;
 
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
@@ -34,31 +38,24 @@ public class LoginActivity extends BaseActivity implements View.OnClickListener,
         mDetailTextView = findViewById(R.id.detail);
         mEmailField = findViewById(R.id.field_email);
         mPasswordField = findViewById(R.id.field_password);
-
         // Buttons
         findViewById(R.id.email_sign_in_button).setOnClickListener(this);
         findViewById(R.id.email_create_account_button).setOnClickListener(this);
         findViewById(R.id.sign_out_button).setOnClickListener(this);
         findViewById(R.id.verify_email_button).setOnClickListener(this);
-
         mAuth = FirebaseAuth.getInstance();
-
-        ModelLoginActivity modelLoginActivity = new ModelLoginActivity(mAuth);
-        presenterLoginActivity = new PresenterLoginActivity(modelLoginActivity);
-        presenterLoginActivity.attachView(this);
-
+        mFirebaseUser = mAuth.getCurrentUser();
     }
 
     @Override
     protected void onStart() {
         super.onStart();
-
-        FirebaseUser firebaseUser = mAuth.getCurrentUser();
+        final FirebaseUser firebaseUser = mAuth.getCurrentUser();
         updateUI(firebaseUser);
     }
 
-    private void createAccount(String pEmail, String pPassword) {
-        Log.d(TAG, "create Account " + pEmail);
+    private void createAccount(final String pEmail, final String pPassword) {
+        Log.d(TAG, mCreateAccount + pEmail);
 
         if (!validateForm()) {
             return;
@@ -67,25 +64,23 @@ public class LoginActivity extends BaseActivity implements View.OnClickListener,
         showProgressDialog();
 
         mAuth.createUserWithEmailAndPassword(pEmail, pPassword)
-                .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
-                    @Override
-                    public void onComplete(@NonNull Task<AuthResult> task) {
-                        if (task.isSuccessful()) {
-                            Log.d(TAG, "Account created");
-                            FirebaseUser firebaseUser = mAuth.getCurrentUser();
-                            updateUI(firebaseUser);
-                        } else {
-                            Log.d(TAG, "Failure on create account", task.getException());
-                            Toast.makeText(LoginActivity.this, "Auth failed", Toast.LENGTH_SHORT).show();
-                           updateUI(null);
-                        }
-
-                        hideProgressDialog();
+                .addOnCompleteListener(this, task -> {
+                    if (task.isSuccessful()) {
+                        Log.d(TAG, mCreateAccount);
+                        final FirebaseUser firebaseUser = mAuth.getCurrentUser();
+                        sendEmailVerify();
+                        updateUI(firebaseUser);
+                    } else {
+                        exceptionsFirebase(task);
+                        Log.d(TAG, mDidntCreateAccount, task.getException());
+                        updateUI(null);
                     }
+                    hideProgressDialog();
                 });
     }
 
-    private void signIn(String pEmail, String pPassword) {
+
+    private void signIn(final String pEmail, final String pPassword) {
         Log.d(TAG, "signIn:" + pEmail);
         if (!validateForm()) {
             return;
@@ -94,24 +89,17 @@ public class LoginActivity extends BaseActivity implements View.OnClickListener,
         showProgressDialog();
 
         mAuth.signInWithEmailAndPassword(pEmail, pPassword)
-                .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
-                    @Override
-                    public void onComplete(@NonNull Task<AuthResult> task) {
-                        if (task.isSuccessful()) {
-                            Log.d(TAG, "Account created");
-                            FirebaseUser firebaseUser = mAuth.getCurrentUser();
-                            updateUI(firebaseUser);
-                        } else {
-                            Log.d(TAG, "Failure on create account", task.getException());
-                            Toast.makeText(LoginActivity.this, "Auth failed", Toast.LENGTH_SHORT).show();
-                            updateUI(null);
-                        }
-
-                        if (!task.isSuccessful()) {
-                            mStatusTextView.setText("auth failed");
-                        }
-                        hideProgressDialog();
+                .addOnCompleteListener(this, task -> {
+                    if (task.isSuccessful()) {
+                        Log.d(TAG, "Account created");
+                        final FirebaseUser firebaseUser = mAuth.getCurrentUser();
+                        updateUI(firebaseUser);
+                    } else {
+                        exceptionsFirebase(task);
+                        Log.d(TAG, "Failure on create account", task.getException());
+                        updateUI(null);
                     }
+                    hideProgressDialog();
                 });
     }
 
@@ -126,7 +114,6 @@ public class LoginActivity extends BaseActivity implements View.OnClickListener,
     }
 
 
-
     private void signOut() {
         mAuth.signOut();
         updateUI(null);
@@ -137,40 +124,34 @@ public class LoginActivity extends BaseActivity implements View.OnClickListener,
         findViewById(R.id.verify_email_button).setEnabled(false);
 
         final FirebaseUser firebaseUser = mAuth.getCurrentUser();
-
         if (firebaseUser != null) {
             firebaseUser.sendEmailVerification()
-                    .addOnCompleteListener(this, new OnCompleteListener<Void>() {
-                        @Override
-                        public void onComplete(@NonNull Task<Void> task) {
-                            findViewById(R.id.verify_email_button).setEnabled(true);
+                    .addOnCompleteListener(this, task -> {
+                        findViewById(R.id.verify_email_button).setEnabled(true);
 
-                            if (task.isSuccessful()) {
-                                Toast.makeText(LoginActivity.this, "Verify email to " + firebaseUser.getEmail(), Toast.LENGTH_SHORT).show();
-                            } else {
-                                Toast.makeText(LoginActivity.this, "Verify failed email to " + firebaseUser.getEmail(), Toast.LENGTH_SHORT).show();
-                            }
+                        if (task.isSuccessful()) {
+                            Log.d("verify", String.valueOf(firebaseUser.isEmailVerified()));
+                            Toast.makeText(this, R.string.verify_email + firebaseUser.getEmail(), Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(this, R.string.false_verify_email + firebaseUser.getEmail(), Toast.LENGTH_SHORT).show();
                         }
                     });
         }
     }
 
-    private void updateUI(FirebaseUser pFirebaseUser) {
+    private void updateUI(final UserInfo pFirebaseUser) {
         hideProgressDialog();
         if (pFirebaseUser != null) {
             mStatusTextView.setText(getString(R.string.emailpassword_status_fmt,
                     pFirebaseUser.getEmail(), pFirebaseUser.isEmailVerified()));
             mDetailTextView.setText(getString(R.string.firebase_status_fmt, pFirebaseUser.getUid()));
-
             findViewById(R.id.email_password_buttons).setVisibility(View.GONE);
             findViewById(R.id.email_password_fields).setVisibility(View.GONE);
             findViewById(R.id.signed_in_buttons).setVisibility(View.VISIBLE);
-
             findViewById(R.id.verify_email_button).setEnabled(!pFirebaseUser.isEmailVerified());
         } else {
             mStatusTextView.setText(R.string.signed_out);
             mDetailTextView.setText(null);
-
             findViewById(R.id.email_password_buttons).setVisibility(View.VISIBLE);
             findViewById(R.id.email_password_fields).setVisibility(View.VISIBLE);
             findViewById(R.id.signed_in_buttons).setVisibility(View.GONE);
@@ -179,18 +160,16 @@ public class LoginActivity extends BaseActivity implements View.OnClickListener,
 
     private boolean validateForm() {
         boolean valid = true;
-
-        String email = mEmailField.getText().toString();
+        final String email = mEmailField.getText().toString();
         if (TextUtils.isEmpty(email)) {
-            mEmailField.setText("Required");
+            mEmailField.setText(R.string.required);
             valid = false;
         } else {
             mEmailField.setError(null);
         }
-
-        String password = mPasswordField.getText().toString();
+        final String password = mPasswordField.getText().toString();
         if (TextUtils.isEmpty(password)) {
-            mPasswordField.setText("Required.");
+            mPasswordField.setText(R.string.required);
             valid = false;
         } else {
             mPasswordField.setError(null);
@@ -200,8 +179,8 @@ public class LoginActivity extends BaseActivity implements View.OnClickListener,
     }
 
     @Override
-    public void onClick(View view) {
-        int i = view.getId();
+    public void onClick(final View view) {
+        final int i = view.getId();
         if (i == R.id.email_create_account_button) {
             createAccount(mEmailField.getText().toString(), mPasswordField.getText().toString());
         } else if (i == R.id.email_sign_in_button) {
@@ -213,11 +192,44 @@ public class LoginActivity extends BaseActivity implements View.OnClickListener,
         }
     }
 
-    public UserData getUserData(){
-        UserData userData = new UserData();
-        userData.setEmail(mEmailField.getText().toString());
-        userData.setPassword(mPasswordField.getText().toString());
-        return userData;
+
+    public void exceptionsFirebase(final Task pTask) {
+        try {
+            throw Objects.requireNonNull(pTask.getException());
+        } catch (final FirebaseAuthUserCollisionException pCollisionException) {
+            Toast.makeText(this, R.string.auth_user_collision, Toast.LENGTH_SHORT).show();
+        } catch (final FirebaseAuthWeakPasswordException e) {
+            Toast.makeText(this, R.string.auth_weak_password, Toast.LENGTH_SHORT).show();
+        } catch (final FirebaseAuthInvalidCredentialsException pCredentialException) {
+            Toast.makeText(this, R.string.auth_invalid_credentials, Toast.LENGTH_SHORT).show();
+        } catch (final Exception e) {
+            e.fillInStackTrace();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+    }
+
+    @Override
+    protected void onResume() {
+        if (mFirebaseUser.isEmailVerified()){
+            mDetailTextView.setText(getString(R.string.firebase_status_fmt, mFirebaseUser.getUid()));
+        }
+        
+        super.onResume();
+
+
+    }
+
+    @Override
+    protected void onRestart() {
+
+
+
+        super.onRestart();
+
 
     }
 }
